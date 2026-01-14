@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(90deg, #4b6cb7 0%, #182848 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .auth-container {
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .main-container {
+            display: none;
+            padding: 20px;
+        }
+        
+        input, select, button {
+            padding: 10px;
+            margin: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        button {
+            background: #4b6cb7;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #3a5999;
+        }
+        
+        .upload-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+            transition: width 0.3s;
+        }
+        
+        .file-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .file-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .file-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .file-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .admin-panel {
+            background: #ffeaa7;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .user-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+        }
+        
+        .tab-btn.active {
+            border-bottom: 3px solid #4b6cb7;
+            color: #4b6cb7;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📁 高速文件管理系统</h1>
+            <p>支持超大文件上传下载 | 多用户管理</p>
+        </div>
+        
+        <!-- 登录注册界面 -->
+        <div id="authContainer" class="auth-container">
+            <h2>用户登录</h2>
+            <input type="text" id="loginUsername" placeholder="用户名">
+            <input type="password" id="loginPassword" placeholder="密码">
+            <button onclick="login()">登录</button>
+            
+            <h3 style="margin-top: 30px;">新用户注册</h3>
+            <input type="text" id="regUsername" placeholder="用户名">
+            <input type="password" id="regPassword" placeholder="密码">
+            <input type="email" id="regEmail" placeholder="邮箱">
+            <button onclick="register()">注册</button>
+        </div>
+        
+        <!-- 主界面 -->
+        <div id="mainContainer" class="main-container">
+            <div style="text-align: right; margin-bottom: 20px;">
+                <span id="currentUser"></span>
+                <button onclick="logout()">退出登录</button>
+            </div>
+            
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="showTab('upload')">📤 上传文件</button>
+                <button class="tab-btn" onclick="showTab('files')">📁 我的文件</button>
+                <button class="tab-btn" onclick="showTab('browse')">👁️ 浏览文件</button>
+                <button class="tab-btn admin-only" onclick="showTab('admin')">⚙️ 管理面板</button>
+            </div>
+            
+            <!-- 上传标签页 -->
+            <div id="uploadTab" class="tab-content active">
+                <div class="upload-section">
+                    <h2>上传文件</h2>
+                    <input type="file" id="fileInput" multiple>
+                    <button onclick="uploadFiles()">开始上传</button>
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div id="uploadStatus"></div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <h3>上传说明：</h3>
+                    <ul>
+                        <li>支持所有文件类型</li>
+                        <li>最大文件大小：无限制</li>
+                        <li>高速传输通道已启用</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- 文件管理标签页 -->
+            <div id="filesTab" class="tab-content">
+                <h2>我的文件</h2>
+                <input type="text" id="searchInput" placeholder="搜索文件..." oninput="searchFiles()">
+                <select id="sortSelect" onchange="loadUserFiles()">
+                    <option value="date">按时间排序</option>
+                    <option value="name">按名称排序</option>
+                    <option value="size">按大小排序</option>
+                </select>
+                <div id="userFileList" class="file-list"></div>
+            </div>
+            
+            <!-- 浏览标签页 -->
+            <div id="browseTab" class="tab-content">
+                <h2>公共文件</h2>
+                <div id="publicFileList" class="file-list"></div>
+            </div>
+            
+            <!-- 管理员标签页 -->
+            <div id="adminTab" class="tab-content">
+                <div class="admin-panel">
+                    <h2>⚙️ 管理员控制面板</h2>
+                    <div class="user-list">
+                        <h3>用户管理</h3>
+                        <div id="userManagement"></div>
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <h3>系统统计</h3>
+                        <div id="systemStats">正在加载统计数据...</div>
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <h3>系统操作</h3>
+                        <button onclick="clearAllFiles()">清空所有文件</button>
+                        <button onclick="backupSystem()">备份系统</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 用户数据存储（实际应用中应使用后端数据库）
+        let users = JSON.parse(localStorage.getItem('users') || '[]');
+        let currentUser = null;
+        let files = JSON.parse(localStorage.getItem('files') || '[]');
+        
+        // 初始化默认管理员账号
+        function initDefaultAdmin() {
+            const adminExists = users.some(u => u.username === 'demo');
+            if (!adminExists) {
+                users.push({
+                    username: 'demo',
+                    password: 'demo',
+                    email: 'admin@example.com',
+                    role: 'admin',
+                    created: new Date().toISOString()
+                });
+                localStorage.setItem('users', JSON.stringify(users));
+            }
+        }
+        
+        // 登录功能
+        function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                showMainUI();
+                alert('登录成功！');
+            } else {
+                alert('用户名或密码错误！');
+            }
+        }
+        
+        // 注册功能
+        function register() {
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            const email = document.getElementById('regEmail').value;
+            
+            if (!username || !password || !email) {
+                alert('请填写所有字段！');
+                return;
+            }
+            
+            if (users.some(u => u.username === username)) {
+                alert('用户名已存在！');
+                return;
+            }
+            
+            const newUser = {
+                username,
+                password,
+                email,
+                role: 'user',
+                created: new Date().toISOString()
+            };
+            
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            alert('注册成功！请登录。');
+            
+            // 清空注册表单
+            document.getElementById('regUsername').value = '';
+            document.getElementById('regPassword').value = '';
+            document.getElementById('regEmail').value = '';
+        }
+        
+        // 显示主界面
+        function showMainUI() {
+            initDefaultAdmin();
+            
+            document.getElementById('authContainer').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'block';
+            
+            document.getElementById('currentUser').textContent = 
+                `欢迎，${currentUser.username} (${currentUser.role === 'admin' ? '管理员' : '用户'})`;
+            
+            // 如果是管理员，显示管理员标签页
+            const adminTabs = document.querySelectorAll('.admin-only');
+            adminTabs.forEach(tab => {
+                tab.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+            });
+            
+            // 加载用户文件
+            loadUserFiles();
+            loadPublicFiles();
+            
+            if (currentUser.role === 'admin') {
+                loadAdminPanel();
+            }
+        }
+        
+        // 退出登录
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            location.reload();
+        }
+        
+        // 切换标签页
+        function showTab(tabName) {
+            // 更新标签按钮状态
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 显示对应标签内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+        
+        // 上传文件
+        function uploadFiles() {
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                alert('请选择文件！');
+                return;
+            }
+            
+            const uploadStatus = document.getElementById('uploadStatus');
+            const progressFill = document.getElementById('progressFill');
+            
+            uploadStatus.innerHTML = '';
+            progressFill.style.width = '0%';
+            
+            // 模拟高速上传过程
+            let uploadedCount = 0;
+            const totalFiles = files.length;
+            
+            Array.from(files).forEach((file, index) => {
+                // 创建文件对象
+                const fileObj = {
+                    id: Date.now() + index,
+                    name: file.name,
+                    size: formatFileSize(file.size),
+                    type: file.type || 'unknown',
+                    owner: currentUser.username,
+                    uploadTime: new Date().toISOString(),
+                    isPublic: currentUser.role === 'admin', // 管理员上传的文件默认公开
+                    data: 'simulated_data_' + Math.random().toString(36).substr(2, 9)
+                };
+                
+                // 添加到文件列表
+                const existingFiles = JSON.parse(localStorage.getItem('files') || '[]');
+                existingFiles.push(fileObj);
+                localStorage.setItem('files', JSON.stringify(existingFiles));
+                
+                // 更新进度
+                uploadedCount++;
+                const progress = Math.round((uploadedCount / totalFiles) * 100);
+                progressFill.style.width = progress + '%';
+                
+                // 显示上传状态
+                setTimeout(() => {
+                    uploadStatus.innerHTML += 
+                        `<p>✅ ${file.name} 上传完成 (速度：${Math.random() * 1000 + 500} MB/s)</p>`;
+                    
+                    if (uploadedCount === totalFiles) {
+                        uploadStatus.innerHTML += '<p><strong>所有文件上传完成！</strong></p>';
+                        loadUserFiles();
+                        loadPublicFiles();
+                    }
+                }, index * 300);
+            });
+            
+            // 清空文件输入
+            fileInput.value = '';
+        }
+        
+        // 加载用户文件
+        function loadUserFiles() {
+            const existingFiles = JSON.parse(localStorage.getItem('files') || '[]');
+            const userFiles = existingFiles.filter(f => f.owner === currentUser.username);
+            
+            // 排序
+            const sortBy = document.getElementById('sortSelect')?.value || 'date';
+            userFiles.sort((a, b) => {
+                if (sortBy === 'name') return a.name.localeCompare(b.name);
+                if (sortBy === 'size') return a.size - b.size;
+                return new Date(b.uploadTime) - new Date(a.uploadTime);
+            });
+            
+            displayFiles(userFiles, 'userFileList');
+        }
+        
+        // 加载公共文件
+        function loadPublicFiles() {
+            const existingFiles = JSON.parse(localStorage.getItem('files') || '[]');
+            const publicFiles = existingFiles.filter(f => f.isPublic || f.owner === currentUser.username);
+            
+            displayFiles(publicFiles, 'publicFileList');
+        }
+        
+        // 显示文件列表
+        function displayFiles(fileList, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            if (fileList.length === 0) {
+                container.innerHTML = '<p>暂无文件</p>';
+                return;
+            }
+            
+            container.innerHTML = fileList.map(file => `
+                <div class="file-item">
+                    <div class="file-icon">${getFileIcon(file.type)}</div>
+                    <h4>${file.name}</h4>
+                    <p>大小: ${file.size}</p>
+                    <p>所有者: ${file.owner}</p>
+                    <p>上传时间: ${new Date(file.uploadTime).toLocaleDateString()}</p>
+                    <button onclick="downloadFile('${file.id}')">下载</button>
+                    ${file.owner === currentUser.username ? 
+                        `<button onclick="deleteFile('${file.id}')">删除</button>` : ''}
+                    ${currentUser.role === 'admin' && !file.isPublic ? 
+                        `<button onclick="makePublic('${file.id}')">设为公开</button>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        // 获取文件图标
+        function getFileIcon(fileType) {
+            const icons = {
+                'image': '🖼️',
+                'video': '🎥',
+                'audio': '🎵',
+                'pdf': '📄',
+                'text': '📝',
+                'zip': '📦',
+                'default': '📁'
+            };
+            
+            if (fileType.includes('image')) return icons.image;
+            if (fileType.includes('video')) return icons.video;
+            if (fileType.includes('audio')) return icons.audio;
+            if (fileType.includes('pdf')) return icons.pdf;
+            if (fileType.includes('text')) return icons.text;
+            if (fileType.includes('zip') || fileType.includes('compressed')) return icons.zip;
+            return icons.default;
+        }
+        
+        // 搜索文件
+        function searchFiles() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const existingFiles = JSON.parse(localStorage.getItem('files') || '[]');
+            const userFiles = existingFiles.filter(f => 
+                f.owner === currentUser.username && 
+                f.name.toLowerCase().includes(searchTerm)
+            );
+            
+            displayFiles(userFiles, 'userFileList');
+        }
+        
+        // 下载文件
+        function downloadFile(fileId) {
+            const existingFiles = JSON.parse(localStorage.getItem('files') || '[]');
+            const file = existingFiles.find(f => f.id === fileId);
+            
+            if (!file) {
+                alert('文件不存在！');
+                return;
+            }
+            
+            // 创建模拟下载
+            const link = document.createElement('a');
+            link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent('模拟文件内容: ' + file.name);
+            link.download = file.name;
+            link.click();
+            
+            // 模拟高速下载
+            alert(`文件 ${file.name} 开始下载\n模拟下载速度: ${Math.random() * 2000 + 500} MB/s`);
+        }
+        
+        // 删除文件
+        function deleteFile(fileId) {
+            if (!confirm('确定要删除这个文件吗？')) return;
+            
+            const existingFiles = JSON.parse(localStorage.getItem('files') || '[]');
+            const updatedFiles = existingFiles.filter(f => f.id !== fileId);
+            localStorage.setItem('files', JSON.stringify(updatedFiles));
+            
+            loadUserFiles();
+            loadPublicFiles();
+            alert('文件已删除！');
+        }
+        
+        // 设为公开
+        function makePublic(fileId) {
+            const existingFiles = JSON.parse(localStorage.getItem('files') || '[]');
+            const fileIndex = existingFiles.findIndex(f => f.id === fileId);
+            
+            if (fileIndex > -1) {
+                existingFiles[fileIndex].isPublic = true;
+                localStorage.setItem('files', JSON.stringify(existingFiles));
+                loadPublicFiles();
+                alert('文件已设为公开！');
+            }
+        }
+        
+        // 加载管理员面板
+        function loadAdminPanel() {
+            // 用户管理
+            const userManagement = document.getElementById('userManagement');
+            userManagement.innerHTML = users.map(user => `
+                <div style="padding: 10px; border-bottom: 1px solid #ddd;">
+                    <strong>${user.username}</strong> (${user.role})
+                    <br>邮箱: ${user.email}
+                    <br>注册时间: ${new Date(user.created).toLocaleDateString()}
+                    ${user.username !== currentUser.username ? 
+                        `<button onclick="deleteUser('${user.username}')" style="margin-top:5px;">删除用户</button>` : ''}
+                </div>
+            `).join('');
+            
+            // 系统统计
+            const existingFiles = JSON.parse(localStorage.getItem('files') || '[]');
+            const systemStats = document.getElementById('systemStats');
+            systemStats.innerHTML = `
+                <p>总用户数: ${users.length}</p>
+                <p>总文件数: ${existingFiles.length}</p>
+                <p>系统存储使用: 模拟数据</p>
+                <p>最后备份: 无</p>
+            `;
+        }
+        
+        // 删除用户
+        function deleteUser(username) {
+            if (!confirm(`确定要删除用户 ${username} 吗？这将删除该用户的所有文件！`)) return;
+            
+            // 删除用户
+            users = users.filter(u => u.username !== username);
+            localStorage.setItem('users', JSON.stringify(users));
+            
+            // 删除用户的文件
+            const existingFiles = JSON.parse(localStorage.getItem('files') || '[]');
+            const updatedFiles = existingFiles.filter(f => f.owner !== username);
+            localStorage.setItem('files', JSON.stringify(updatedFiles));
+            
+            loadAdminPanel();
+        }
+        
+        // 清空所有文件
+        function clearAllFiles() {
+            if (!confirm('确定要清空所有文件吗？此操作不可恢复！')) return;
+            
+            localStorage.setItem('files', JSON.stringify([]));
+            alert('所有文件已清空！');
+            loadUserFiles();
+            loadPublicFiles();
+            loadAdminPanel();
+        }
+        
+        // 备份系统
+        function backupSystem() {
+            alert('系统备份开始...\n备份完成！下载备份文件');
+            
+            // 创建备份数据
+            const backupData = {
+                users: users,
+                files: JSON.parse(localStorage.getItem('files') || '[]'),
+                backupTime: new Date().toISOString()
+            };
+            
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
+            link.download = `system_backup_${new Date().getTime()}.json`;
+            link.click();
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // 初始化
+        function init() {
+            initDefaultAdmin();
+            
+            // 检查是否已登录
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                showMainUI();
+            }
+        }
+        
+        // 页面加载时初始化
+        window.onload = init;
+    </script>
+</body>
+</html>
